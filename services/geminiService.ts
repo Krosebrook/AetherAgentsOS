@@ -3,8 +3,15 @@ import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 import { ModelType, AgentConfig } from "../types";
 
 const API_KEY = process.env.API_KEY || "";
-const FALLBACK_TEXT_MODEL = ModelType.FLASH;
-const FALLBACK_IMAGE_MODEL = ModelType.IMAGEN;
+
+/**
+ * Fallback priority chain for text generation.
+ * If the user's selected model fails, the system attempts these in order.
+ */
+const TEXT_FALLBACK_CHAIN = [
+  ModelType.FLASH,
+  ModelType.LITE,
+];
 
 export const getGeminiClient = () => {
   if (!API_KEY) throw new Error("API Key is missing from environment.");
@@ -26,7 +33,8 @@ const executeGeneration = async (
     temperature: config.temperature,
   };
 
-  if (config.useSearch) {
+  // Google Search is supported on Pro and Flash series, but not currently on Lite.
+  if (config.useSearch && (model.includes('pro') || model.includes('flash-preview'))) {
     generationConfig.tools = [{ googleSearch: {} }];
   }
 
@@ -41,7 +49,7 @@ const executeGeneration = async (
     for await (const chunk of result) {
       const text = chunk.text || "";
       fullText += text;
-      onStream(text);
+      onStream(fullText); // Send full accumulated text to ensure UI consistency
     }
     return fullText;
   } else {
@@ -59,33 +67,45 @@ const executeGeneration = async (
 };
 
 /**
- * Generates an agent response with built-in model fallback logic.
+ * Generates an agent response with an automated multi-tier model fallback.
+ * Cycle: User Selection -> Gemini 3 Flash -> Gemini Flash Lite.
  */
 export const generateAgentResponse = async (
   config: AgentConfig,
   prompt: string,
   onStream?: (chunk: string) => void
 ): Promise<any> => {
-  const primaryModel = config.model;
-
-  try {
-    return await executeGeneration(primaryModel, config, prompt, onStream);
-  } catch (error: any) {
-    console.warn(`Primary text model [${primaryModel}] failed:`, error.message);
-
-    if (primaryModel === FALLBACK_TEXT_MODEL || primaryModel === ModelType.IMAGE) {
-      throw error;
-    }
-
-    console.info(`Initiating fallback to [${FALLBACK_TEXT_MODEL}]...`);
-    
-    try {
-      return await executeGeneration(FALLBACK_TEXT_MODEL, config, prompt, onStream);
-    } catch (fallbackError: any) {
-      console.error(`Fallback text model [${FALLBACK_TEXT_MODEL}] also failed:`, fallbackError.message);
-      throw fallbackError;
+  const modelsToTry = [config.model];
+  
+  // Build fallback sequence, avoiding duplicates
+  for (const fallback of TEXT_FALLBACK_CHAIN) {
+    if (!modelsToTry.includes(fallback)) {
+      modelsToTry.push(fallback);
     }
   }
+
+  let lastError: any = null;
+
+  for (const model of modelsToTry) {
+    try {
+      if (lastError) {
+        console.info(`Triggering fallback for [${config.model}] -> Attempting [${model}]...`);
+        // Notify UI to clear any partial failed generation text
+        if (onStream) onStream(""); 
+      }
+      return await executeGeneration(model, config, prompt, onStream);
+    } catch (error: any) {
+      lastError = error;
+      console.warn(`Generation via [${model}] failed: ${error.message || 'Unknown Protocol Error'}`);
+      
+      // Stop early if it's a permanent user-side error (e.g. location required)
+      if (error.message?.includes("location") || error.message?.includes("Safety")) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError;
 };
 
 /**
@@ -96,7 +116,6 @@ export const generateImage = async (prompt: string): Promise<string | null> => {
   const ai = getGeminiClient();
 
   try {
-    // Attempt 1: Gemini 2.5 Flash Image (Nano Banana Series)
     const response = await ai.models.generateContent({
       model: ModelType.IMAGE,
       contents: {
@@ -115,17 +134,15 @@ export const generateImage = async (prompt: string): Promise<string | null> => {
       }
     }
     
-    // If no image part found, throw to trigger fallback
-    throw new Error("No image data returned from primary model.");
+    throw new Error("No image data returned from Nano Banana engine.");
 
   } catch (error: any) {
-    console.warn(`Primary image model [${ModelType.IMAGE}] failed:`, error.message);
-    console.info(`Initiating image fallback to [${FALLBACK_IMAGE_MODEL}]...`);
+    console.warn(`Primary image model failed: ${error.message}`);
+    console.info(`Initiating image fallback to [${ModelType.IMAGEN}]...`);
 
     try {
-      // Attempt 2: Imagen 4.0 (Dedicated Image Generation Model)
       const response = await ai.models.generateImages({
-        model: FALLBACK_IMAGE_MODEL,
+        model: ModelType.IMAGEN,
         prompt: prompt,
         config: {
           numberOfImages: 1,
@@ -140,7 +157,7 @@ export const generateImage = async (prompt: string): Promise<string | null> => {
       
       return null;
     } catch (fallbackError: any) {
-      console.error(`Fallback image model [${FALLBACK_IMAGE_MODEL}] failed:`, fallbackError.message);
+      console.error(`Imagen 4.0 fallback failed:`, fallbackError.message);
       throw fallbackError;
     }
   }

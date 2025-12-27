@@ -1,20 +1,20 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Globe, Sparkles, User, Bot, Clock } from 'lucide-react';
-import { Message, AgentConfig } from '../types';
+import { Send, Globe, Sparkles, User, Bot, Clock, Cpu } from 'lucide-react';
+import { Message, Agent } from '../types';
 import { generateAgentResponse } from '../services/geminiService';
 
 interface Props {
-  config: AgentConfig;
+  agent: Agent;
   onMetricUpdate: (tokens: number) => void;
 }
 
-const ChatView: React.FC<Props> = ({ config, onMetricUpdate }) => {
+const ChatView: React.FC<Props> = ({ agent, onMetricUpdate }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       role: 'assistant',
-      content: 'Aether core initialized. Ready for multi-modal orchestration. How can I assist you today?',
+      content: `Aether Node [${agent.name}] initialized. Strategy loaded: ${agent.model.split('-')[1].toUpperCase()}.`,
       timestamp: Date.now(),
       type: 'text'
     }
@@ -53,10 +53,8 @@ const ChatView: React.FC<Props> = ({ config, onMetricUpdate }) => {
     }]);
 
     try {
-      let fullResponse = "";
-      if (config.useSearch) {
-        // Search grounding doesn't support streaming well in some SDK versions, fallback to direct
-        const result = await generateAgentResponse(config, input);
+      if (agent.useSearch) {
+        const result = await generateAgentResponse(agent, input);
         const searchResult = result as { text: string; grounding: any[] };
         
         setMessages(prev => prev.map(m => 
@@ -65,7 +63,7 @@ const ChatView: React.FC<Props> = ({ config, onMetricUpdate }) => {
                 ...m, 
                 content: searchResult.text, 
                 metadata: { 
-                    model: config.model,
+                    model: agent.model,
                     urls: searchResult.grounding.map((g: any) => ({ uri: g.web?.uri || g.maps?.uri, title: g.web?.title || g.maps?.title }))
                 } 
               } 
@@ -73,18 +71,24 @@ const ChatView: React.FC<Props> = ({ config, onMetricUpdate }) => {
         ));
         onMetricUpdate(searchResult.text.length / 4);
       } else {
-        await generateAgentResponse(config, input, (chunk) => {
-          fullResponse += chunk;
+        // Fallback-aware service now passes the full current text to onStream
+        await generateAgentResponse(agent, input, (currentFullText) => {
           setMessages(prev => prev.map(m => 
-            m.id === assistantMsgId ? { ...m, content: fullResponse } : m
+            m.id === assistantMsgId ? { ...m, content: currentFullText } : m
           ));
         });
-        onMetricUpdate(fullResponse.length / 4);
+        
+        // Find the final content for metric calculation
+        setMessages(prev => {
+          const finalMsg = prev.find(m => m.id === assistantMsgId);
+          if (finalMsg) onMetricUpdate(finalMsg.content.length / 4);
+          return prev;
+        });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setMessages(prev => prev.map(m => 
-        m.id === assistantMsgId ? { ...m, content: "Error: Inference failed. Please check your API configuration." } : m
+        m.id === assistantMsgId ? { ...m, content: `CRITICAL_FAILURE: ${error.message || 'System integrity compromise. No fallback tiers remaining.'}` } : m
       ));
     } finally {
       setIsLoading(false);
@@ -93,6 +97,19 @@ const ChatView: React.FC<Props> = ({ config, onMetricUpdate }) => {
 
   return (
     <div className="flex-1 flex flex-col relative overflow-hidden bg-slate-950">
+      {/* View Header */}
+      <div className="px-6 py-4 border-b border-slate-800 bg-slate-950/50 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-1.5 bg-indigo-500/10 rounded-lg">
+            <Cpu className="w-4 h-4 text-indigo-400" />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-slate-100">{agent.name}</h3>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest">{agent.model}</p>
+          </div>
+        </div>
+      </div>
+
       <div 
         ref={scrollRef}
         className="flex-1 overflow-y-auto p-6 space-y-8 scroll-smooth"
@@ -107,7 +124,7 @@ const ChatView: React.FC<Props> = ({ config, onMetricUpdate }) => {
             <div className={`flex flex-col gap-2 ${msg.role === 'user' ? 'items-end' : ''}`}>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  {msg.role === 'assistant' ? 'Aether Node' : 'System Architect'}
+                  {msg.role === 'assistant' ? agent.name : 'System Architect'}
                 </span>
                 <Clock className="w-3 h-3 text-slate-600" />
                 <span className="text-[10px] text-slate-600">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -156,14 +173,14 @@ const ChatView: React.FC<Props> = ({ config, onMetricUpdate }) => {
           <div className="absolute -top-10 left-0 right-0 flex justify-between px-2">
              <div className="flex items-center gap-2 text-[10px] text-slate-500">
                <Sparkles className="w-3 h-3 text-indigo-500" />
-               Using {config.model.split('-')[1].toUpperCase()} {config.useSearch && ' + Search'}
+               Prompting {agent.name} {agent.useSearch && ' + Search'}
              </div>
           </div>
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Issue command to agent..."
+            placeholder={`Command ${agent.name}...`}
             className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-4 px-6 pr-16 focus:ring-2 focus:ring-indigo-500/50 focus:outline-none transition-all placeholder:text-slate-600 text-slate-200"
           />
           <button 

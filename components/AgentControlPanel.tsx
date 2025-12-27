@@ -1,23 +1,48 @@
 
 import React from 'react';
-import { ModelType, AgentConfig } from '../types';
-// Fixed: Added missing 'Zap' import
-import { Sliders, Search, ShieldAlert, Cpu, Zap } from 'lucide-react';
+import { ModelType, Agent } from '../types';
+import { Sliders, Search, ShieldAlert, Cpu, Zap, Trash2, Edit3 } from 'lucide-react';
 
 interface Props {
-  config: AgentConfig;
-  setConfig: React.Dispatch<React.SetStateAction<AgentConfig>>;
+  agent: Agent;
+  onUpdate: (updated: Agent) => void;
+  onRemove?: () => void;
 }
 
-const AgentControlPanel: React.FC<Props> = ({ config, setConfig }) => {
+const AgentControlPanel: React.FC<Props> = ({ agent, onUpdate, onRemove }) => {
   return (
     <div className="w-80 border-l border-slate-800 p-6 flex flex-col gap-6 bg-slate-950/30 overflow-y-auto">
-      <div className="flex items-center gap-2 mb-2">
-        <Sliders className="w-4 h-4 text-indigo-400" />
-        <h2 className="font-semibold text-slate-100">Agent Architect</h2>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Sliders className="w-4 h-4 text-indigo-400" />
+          <h2 className="font-semibold text-slate-100">Agent Architect</h2>
+        </div>
+        {onRemove && (
+          <button 
+            onClick={onRemove}
+            className="p-1.5 text-slate-600 hover:text-rose-400 transition-colors"
+            title="Terminate Agent Node"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       <div className="space-y-4">
+        <div>
+          <label className="text-[11px] font-bold text-slate-500 uppercase block mb-1.5 tracking-wider">Node Identity</label>
+          <div className="relative group">
+            <input
+              type="text"
+              value={agent.name}
+              onChange={(e) => onUpdate({ ...agent, name: e.target.value })}
+              className="w-full bg-slate-900/50 border border-slate-800 rounded-xl py-2 px-3 pl-9 text-xs text-slate-200 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all"
+              placeholder="Agent Name"
+            />
+            <Edit3 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600 group-focus-within:text-indigo-400" />
+          </div>
+        </div>
+
         <div>
           <label className="text-[11px] font-bold text-slate-500 uppercase block mb-1.5 tracking-wider">Model Selection</label>
           <div className="grid grid-cols-1 gap-2">
@@ -27,9 +52,9 @@ const AgentControlPanel: React.FC<Props> = ({ config, setConfig }) => {
             ].map((m) => (
               <button
                 key={m.id}
-                onClick={() => setConfig(prev => ({ ...prev, model: m.id }))}
+                onClick={() => onUpdate({ ...agent, model: m.id as ModelType })}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
-                  config.model === m.id 
+                  agent.model === m.id 
                     ? 'border-indigo-500/50 bg-indigo-500/10 text-indigo-200' 
                     : 'border-slate-800 bg-slate-900/50 text-slate-400 hover:border-slate-700'
                 }`}
@@ -44,8 +69,8 @@ const AgentControlPanel: React.FC<Props> = ({ config, setConfig }) => {
         <div>
           <label className="text-[11px] font-bold text-slate-500 uppercase block mb-1.5 tracking-wider">System Instruction</label>
           <textarea
-            value={config.systemInstruction}
-            onChange={(e) => setConfig(prev => ({ ...prev, systemInstruction: e.target.value }))}
+            value={agent.systemInstruction}
+            onChange={(e) => onUpdate({ ...agent, systemInstruction: e.target.value })}
             className="w-full bg-slate-900/50 border border-slate-800 rounded-xl p-3 text-xs text-slate-300 h-32 focus:ring-1 focus:ring-indigo-500 focus:outline-none transition-all resize-none font-mono"
             placeholder="Define your agent's persona and constraints..."
           />
@@ -54,15 +79,15 @@ const AgentControlPanel: React.FC<Props> = ({ config, setConfig }) => {
         <div>
           <div className="flex items-center justify-between mb-2">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Temperature</label>
-            <span className="text-[10px] font-mono text-indigo-400">{config.temperature}</span>
+            <span className="text-[10px] font-mono text-indigo-400">{agent.temperature}</span>
           </div>
           <input
             type="range"
             min="0"
             max="1"
             step="0.1"
-            value={config.temperature}
-            onChange={(e) => setConfig(prev => ({ ...prev, temperature: parseFloat(e.target.value) }))}
+            value={agent.temperature}
+            onChange={(e) => onUpdate({ ...agent, temperature: parseFloat(e.target.value) })}
             className="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-indigo-500"
           />
         </div>
@@ -73,14 +98,14 @@ const AgentControlPanel: React.FC<Props> = ({ config, setConfig }) => {
               <Search className="w-3.5 h-3.5 text-slate-400" />
               <span className="text-xs font-medium text-slate-300">Search Grounding</span>
             </div>
-            <div className={`w-8 h-4 rounded-full transition-colors relative ${config.useSearch ? 'bg-indigo-600' : 'bg-slate-700'}`}>
+            <div className={`w-8 h-4 rounded-full transition-colors relative ${agent.useSearch ? 'bg-indigo-600' : 'bg-slate-700'}`}>
               <input 
                 type="checkbox" 
                 className="hidden" 
-                checked={config.useSearch} 
-                onChange={() => setConfig(prev => ({ ...prev, useSearch: !prev.useSearch }))}
+                checked={agent.useSearch} 
+                onChange={() => onUpdate({ ...agent, useSearch: !agent.useSearch })}
               />
-              <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${config.useSearch ? 'left-4.5 translate-x-1.5' : 'left-0.5'}`} />
+              <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${agent.useSearch ? 'left-4.5 translate-x-1.5' : 'left-0.5'}`} />
             </div>
           </label>
           

@@ -1,0 +1,8 @@
+{
+  "name": "Aether Agentic IDE",
+  "description": "A high-performance orchestration platform for multi-modal Gemini agents, featuring search grounding, image generation, and real-time inference monitoring.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

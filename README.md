@@ -1,20 +1,26 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
 
-# Run and deploy your AI Studio app
+# Aether Agentic IDE
 
-This contains everything you need to run your app locally.
+A high-performance orchestration platform for multi-modal Gemini agents. Built as a PWA with local persistence and a real-time command terminal.
 
-View your app in AI Studio: https://ai.studio/apps/drive/1GLSU22MOdOdFP94RrqR3NXi3JZbl3cet
+## Architecture
+- **Framework**: React 19 + Tailwind CSS
+- **PWA**: Service Worker (`sw.js`) + Manifest (`manifest.json`)
+- **Engine**: `@google/genai` (Gemini 3 Flash/Pro)
+- **Visuals**: Recharts (Telemetry) + Lucide (Iconography)
 
-## Run Locally
+## Features
+- **Workflow Engine**: Industrial templates for market research, security auditing, and risk management.
+- **Node Orchestrator**: Multi-agent instance management with health tracking.
+- **Aether CLI**: Integrated terminal for system-level control.
+- **Inference Metrics**: Real-time latency and token density monitoring.
 
-**Prerequisites:**  Node.js
+## Command Line Usage
+Access the terminal (`CTRL + ~`) and use:
+- `nodes`: List all active agent instances.
+- `deploy [name]`: Provision a new agent node.
+- `status`: Check global system health.
+- `clear`: Purge log history.
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Security
+API keys are handled exclusively via server-side injection (`process.env.API_KEY`) and are never exposed to the frontend persistent storage layers.

@@ -1,0 +1,23 @@
+
+{
+  "name": "Aether Agentic IDE",
+  "short_name": "Aether",
+  "description": "High-performance orchestration platform for multi-modal Gemini agents.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#6366f1",
+  "icons": [
+    {
+      "src": "https://cdn.pixabay.com/photo/2017/01/31/23/42/animal-2028258_1280.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://cdn.pixabay.com/photo/2017/01/31/23/42/animal-2028258_1280.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

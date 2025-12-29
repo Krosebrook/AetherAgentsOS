@@ -1,8 +1,9 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Cpu, Zap, Plus, Trash2, MessageSquare, Settings2, 
-  Layers, Search, BrainCircuit, Link2, ShieldCheck 
+  Layers, Search, BrainCircuit, Link2, ShieldCheck,
+  ShieldAlert, AlertTriangle, X
 } from 'lucide-react';
 import { Agent, ModelType } from '../types';
 
@@ -23,6 +24,8 @@ const OrchestrationView: React.FC<Props> = ({
   onSelectAgent,
   onSetActiveTab
 }) => {
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+
   return (
     <div className="flex-1 p-10 bg-slate-950 overflow-y-auto pb-32">
       <div className="max-w-7xl mx-auto space-y-12">
@@ -41,6 +44,34 @@ const OrchestrationView: React.FC<Props> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {agents.map(agent => (
             <div key={agent.id} className={`relative bg-slate-900/40 border-2 rounded-3xl p-8 flex flex-col group transition-all ${agent.id === activeAgentId ? 'border-indigo-500/40 shadow-2xl shadow-indigo-500/10' : 'border-slate-800'}`}>
+              
+              {/* INLINE TERMINATION OVERLAY */}
+              {confirmingDeleteId === agent.id && (
+                <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-md rounded-3xl p-6 flex flex-col items-center justify-center text-center space-y-4 animate-in fade-in duration-200">
+                  <div className="p-3 bg-rose-500/10 rounded-full text-rose-500">
+                    <ShieldAlert className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-slate-100 uppercase tracking-widest">Confirm Termination</h4>
+                    <p className="text-[10px] text-slate-500 px-4">Decommissioning this node will permanently sever its active sessions.</p>
+                  </div>
+                  <div className="flex gap-2 w-full pt-2">
+                    <button 
+                      onClick={() => { onRemoveAgent(agent.id); setConfirmingDeleteId(null); }}
+                      className="flex-1 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest transition-all"
+                    >
+                      Confirm
+                    </button>
+                    <button 
+                      onClick={() => setConfirmingDeleteId(null)}
+                      className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-[10px] font-bold uppercase tracking-widest border border-slate-700"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className={`absolute top-6 right-6 w-2.5 h-2.5 rounded-full ${agent.health && agent.health < 20 ? 'bg-rose-500' : 'bg-emerald-500'} animate-pulse`} />
               
               <div className="flex items-center gap-4 mb-8">
@@ -81,7 +112,11 @@ const OrchestrationView: React.FC<Props> = ({
               </div>
 
               {agents.length > 1 && (
-                <button onClick={() => onRemoveAgent(agent.id)} className="absolute bottom-6 right-6 p-2 text-slate-700 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button 
+                  onClick={() => setConfirmingDeleteId(agent.id)} 
+                  className="absolute bottom-6 right-6 p-2 text-slate-700 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Remove Node"
+                >
                    <Trash2 className="w-4 h-4" />
                 </button>
               )}

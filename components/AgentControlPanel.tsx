@@ -12,13 +12,15 @@ import {
   Terminal, 
   ChevronDown,
   Target,
-  Hash,
   BrainCircuit,
   Layers,
   Thermometer,
   ShieldCheck,
   Activity,
-  ZapOff
+  ZapOff,
+  X,
+  AlertTriangle,
+  ShieldAlert
 } from 'lucide-react';
 
 interface Props {
@@ -64,19 +66,46 @@ const AgentControlPanel: React.FC<Props> = ({ agent, onUpdate, onRemove }) => {
 
   return (
     <div className="w-80 border-l border-slate-800 p-6 flex flex-col gap-6 bg-slate-950/40 backdrop-blur-3xl overflow-y-auto relative scrollbar-hide mb-10 shadow-[-10px_0_30px_rgba(0,0,0,0.3)]">
+      {/* HIGH-FIDELITY DELETION PROTOCOL OVERLAY */}
       {showDeleteConfirm && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-slate-950/95 backdrop-blur-xl animate-in fade-in duration-300">
-          <div className="w-full bg-slate-900 border border-slate-800 rounded-[2rem] p-7 shadow-2xl space-y-6 text-center">
-             <div className="mx-auto w-16 h-16 bg-rose-500/10 rounded-full flex items-center justify-center text-rose-500 ring-4 ring-rose-500/5 mb-2">
-                <Trash2 className="w-8 h-8" />
+        <div className="absolute inset-0 z-[100] flex items-center justify-center p-6 bg-slate-950/98 backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full bg-slate-900 border border-rose-500/30 rounded-[2.5rem] p-8 shadow-[0_0_50px_rgba(244,63,94,0.15)] space-y-8 text-center relative overflow-hidden">
+             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-rose-500 to-transparent opacity-50" />
+             
+             <div className="mx-auto w-20 h-20 bg-rose-500/10 rounded-full flex items-center justify-center text-rose-500 ring-4 ring-rose-500/5 animate-pulse">
+                <ShieldAlert className="w-10 h-10" />
              </div>
-             <div className="space-y-2">
-                <h3 className="text-xl font-bold text-slate-100">Terminate?</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">Disconnecting <span className="text-slate-300 font-mono">[{agent.name}]</span> will purge local context. This action is irreversible.</p>
+
+             <div className="space-y-3">
+                <h3 className="text-xl font-bold text-slate-100 tracking-tight">Force Termination?</h3>
+                <div className="px-2 py-1.5 bg-slate-950 border border-slate-800 rounded-xl inline-block">
+                  <span className="text-[10px] font-mono text-rose-400 uppercase tracking-widest">{agent.id}</span>
+                </div>
+                <p className="text-xs text-slate-500 leading-relaxed px-2">
+                  You are about to decommission <span className="text-slate-100 font-bold">{agent.name}</span>. 
+                  This will purge all local memory and disconnect neural pathways.
+                </p>
              </div>
-             <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowDeleteConfirm(false)} className="flex-1 px-4 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-[10px] font-bold uppercase transition-all">Abort</button>
-                <button onClick={() => { if (onRemove) onRemove(); setShowDeleteConfirm(false); }} className="flex-1 px-4 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl text-[10px] font-bold uppercase transition-all shadow-xl shadow-rose-900/30">Confirm</button>
+
+             <div className="flex flex-col gap-3 pt-4">
+                <button 
+                  onClick={() => { if (onRemove) onRemove(); setShowDeleteConfirm(false); }} 
+                  className="w-full py-4 bg-rose-600 hover:bg-rose-500 text-white rounded-2xl text-xs font-bold uppercase tracking-widest transition-all shadow-xl shadow-rose-900/40 active:scale-95 border border-rose-400/20"
+                >
+                  Confirm Termination
+                </button>
+                <button 
+                  onClick={() => setShowDeleteConfirm(false)} 
+                  className="w-full py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-bold uppercase tracking-widest transition-all border border-slate-700"
+                >
+                  Abort Protocol
+                </button>
+             </div>
+             
+             <div className="pt-2">
+                <p className="text-[9px] text-slate-600 font-medium uppercase tracking-tighter flex items-center justify-center gap-2">
+                  <AlertTriangle className="w-3 h-3 text-amber-500" /> This action cannot be undone
+                </p>
              </div>
           </div>
         </div>
@@ -88,8 +117,12 @@ const AgentControlPanel: React.FC<Props> = ({ agent, onUpdate, onRemove }) => {
           <h2 className="font-bold text-slate-100 uppercase tracking-widest text-[10px]">Neural Configurator</h2>
         </div>
         {onRemove && (
-          <button onClick={() => setShowDeleteConfirm(true)} className="p-2 text-slate-500 hover:text-rose-400 transition-all bg-slate-900/50 rounded-xl border border-slate-800 hover:border-rose-500/30">
-            <Trash2 className="w-4 h-4" />
+          <button 
+            onClick={() => setShowDeleteConfirm(true)} 
+            className="p-2 text-slate-500 hover:text-rose-400 transition-all bg-slate-900/50 rounded-xl border border-slate-800 hover:border-rose-500/30 group"
+            title="Terminate Agent"
+          >
+            <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
           </button>
         )}
       </header>
@@ -183,48 +216,81 @@ const AgentControlPanel: React.FC<Props> = ({ agent, onUpdate, onRemove }) => {
         {/* Tool Grounding */}
         <div className="pt-6 border-t border-slate-800/60 space-y-5">
            <div className="grid grid-cols-1 gap-4">
+              {/* Grounding Search Toggle */}
               <div 
+                role="switch"
+                aria-checked={agent.useSearch}
                 onClick={() => onUpdate({ ...agent, useSearch: !agent.useSearch })} 
-                className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border ${agent.useSearch ? 'bg-indigo-600/10 border-indigo-500/40' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
+                className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border group ${agent.useSearch ? 'bg-indigo-600/10 border-indigo-500/40 shadow-lg shadow-indigo-500/5' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
               >
                 <div className="flex items-center gap-3">
-                   <div className={`p-2 rounded-xl ${agent.useSearch ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500'}`}><Search className="w-4 h-4" /></div>
-                   <span className={`text-[11px] font-bold ${agent.useSearch ? 'text-indigo-100' : 'text-slate-400'}`}>Grounding Search</span>
+                   <div className={`p-2 rounded-xl transition-colors ${agent.useSearch ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-500 group-hover:text-slate-400'}`}>
+                      <Search className="w-4 h-4" />
+                   </div>
+                   <div className="flex flex-col">
+                      <span className={`text-[11px] font-bold ${agent.useSearch ? 'text-indigo-100' : 'text-slate-400'}`}>Grounding Search</span>
+                      <span className="text-[8px] text-slate-600 font-medium uppercase tracking-tighter">Live Web synthesis</span>
+                   </div>
                 </div>
-                <div className={`w-9 h-5 rounded-full transition-all flex items-center px-1 ${agent.useSearch ? 'bg-indigo-600' : 'bg-slate-700'}`}>
-                   <div className={`w-3 h-3 bg-white rounded-full transition-all ${agent.useSearch ? 'translate-x-4' : 'translate-x-0'}`} />
+                {/* Visual Toggle Switch */}
+                <div className={`w-10 h-6 rounded-full transition-all flex items-center px-1 shrink-0 ${agent.useSearch ? 'bg-indigo-600' : 'bg-slate-700'}`}>
+                   <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${agent.useSearch ? 'translate-x-4' : 'translate-x-0'}`} />
                 </div>
               </div>
 
+              {/* Research Payload Query Input - Visible ONLY when Search is ON */}
+              {agent.useSearch && (
+                <div className="space-y-3 animate-in slide-in-from-top-4 fade-in duration-500 pt-1">
+                  <div className="flex items-center justify-between px-1">
+                    <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                      <Layers className="w-3.5 h-3.5" /> Search Override
+                    </label>
+                    {agent.searchQuery && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); onUpdate({ ...agent, searchQuery: '' }); }}
+                        className="p-1 hover:bg-slate-800 rounded text-slate-500 transition-colors"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      value={agent.searchQuery || ''} 
+                      onChange={(e) => onUpdate({ ...agent, searchQuery: e.target.value })} 
+                      placeholder="Enter specific search prompt..."
+                      className="w-full bg-slate-950 border border-slate-800 rounded-2xl py-3.5 px-5 text-xs text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-700 font-medium"
+                    />
+                  </div>
+                  <p className="text-[9px] text-slate-600 font-medium leading-relaxed italic px-1">
+                    Explicitly directs the grounding engine to research this query before generating an answer.
+                  </p>
+                </div>
+              )}
+
+              {/* Safety Shield Toggle */}
               <div 
+                role="switch"
+                aria-checked={agent.safetyFilters}
                 onClick={() => onUpdate({ ...agent, safetyFilters: !agent.safetyFilters })} 
-                className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border ${agent.safetyFilters ? 'bg-emerald-600/10 border-emerald-500/40' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
+                className={`flex items-center justify-between p-4 rounded-2xl cursor-pointer transition-all border group ${agent.safetyFilters ? 'bg-emerald-600/10 border-emerald-500/40 shadow-lg shadow-emerald-500/5' : 'bg-slate-900/30 border-slate-800 hover:border-slate-700'}`}
               >
                 <div className="flex items-center gap-3">
-                   <div className={`p-2 rounded-xl ${agent.safetyFilters ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-500'}`}><ShieldCheck className="w-4 h-4" /></div>
-                   <span className={`text-[11px] font-bold ${agent.safetyFilters ? 'text-emerald-100' : 'text-slate-400'}`}>Safety Shield</span>
+                   <div className={`p-2 rounded-xl transition-colors ${agent.safetyFilters ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-500 group-hover:text-slate-400'}`}>
+                      <ShieldCheck className="w-4 h-4" />
+                   </div>
+                   <div className="flex flex-col">
+                      <span className={`text-[11px] font-bold ${agent.safetyFilters ? 'text-emerald-100' : 'text-slate-400'}`}>Safety Shield</span>
+                      <span className="text-[8px] text-slate-600 font-medium uppercase tracking-tighter">Heuristic filtering</span>
+                   </div>
                 </div>
-                <div className={`w-9 h-5 rounded-full transition-all flex items-center px-1 ${agent.safetyFilters ? 'bg-emerald-600' : 'bg-slate-700'}`}>
-                   <div className={`w-3 h-3 bg-white rounded-full transition-all ${agent.safetyFilters ? 'translate-x-4' : 'translate-x-0'}`} />
+                {/* Visual Toggle Switch */}
+                <div className={`w-10 h-6 rounded-full transition-all flex items-center px-1 shrink-0 ${agent.safetyFilters ? 'bg-emerald-600' : 'bg-slate-700'}`}>
+                   <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out ${agent.safetyFilters ? 'translate-x-4' : 'translate-x-0'}`} />
                 </div>
               </div>
            </div>
-
-           {agent.useSearch && (
-             <div className="space-y-3 animate-in slide-in-from-top-4 duration-500">
-               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 px-1">
-                 <Layers className="w-3.5 h-3.5 text-indigo-400" /> Research Payload Query
-               </label>
-               <input 
-                 type="text" 
-                 value={agent.searchQuery || ''} 
-                 onChange={(e) => onUpdate({ ...agent, searchQuery: e.target.value })} 
-                 placeholder="Specific topic override..."
-                 className="w-full bg-slate-900 border border-slate-800 rounded-2xl py-3.5 px-5 text-xs text-slate-200 focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-700 font-medium"
-               />
-               <p className="text-[9px] text-slate-600 font-medium leading-relaxed italic px-1">Model will prioritize searching this manifest before synthesis.</p>
-             </div>
-           )}
         </div>
       </div>
     </div>

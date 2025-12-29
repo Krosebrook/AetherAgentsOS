@@ -95,3 +95,15 @@ export interface LogEntry {
   source: string;
   message: string;
 }
+
+export interface TerminalResponse {
+  id: string;
+  command: string;
+  response: any;
+  timestamp: number;
+  status: 'success' | 'error' | 'loading';
+}
+
+export interface ApiKeyState {
+  [provider: string]: string;
+}

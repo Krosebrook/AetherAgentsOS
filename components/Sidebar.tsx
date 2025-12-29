@@ -9,7 +9,8 @@ import {
   Workflow,
   AlertCircle,
   CheckCircle2,
-  Clock
+  Clock,
+  Terminal as TerminalIcon
 } from 'lucide-react';
 import { Agent } from '../types';
 
@@ -34,6 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     { id: 'canvas', label: 'Workflow Engine', icon: Workflow },
     { id: 'metrics', label: 'Inference Metrics', icon: Activity },
     { id: 'orchestration', label: 'Node Manager', icon: Layers },
+    { id: 'terminal', label: 'API Terminal', icon: TerminalIcon },
   ];
 
   return (

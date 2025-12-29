@@ -7,6 +7,8 @@ import MetricsView from './components/MetricsView';
 import OrchestrationView from './components/OrchestrationView';
 import AgentControlPanel from './components/AgentControlPanel';
 import SystemTerminal from './components/SystemTerminal';
+import ApiTerminal from './components/ApiTerminal';
+import { ApiKeysProvider } from './contexts/ApiKeysContext';
 import { Agent, ModelType, InferenceMetric, LogEntry } from './types';
 
 const App: React.FC = () => {
@@ -129,50 +131,53 @@ const App: React.FC = () => {
   const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0];
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-200 font-sans antialiased overflow-hidden select-none">
-      <Sidebar 
-        activeTab={activeTab} 
-        setActiveTab={setActiveTab} 
-        agents={agents} 
-        activeAgentId={activeAgentId} 
-        setActiveAgentId={setActiveAgentId}
-        onAddAgent={handleAddAgent}
-      />
-      
-      <main className="flex-1 flex flex-col overflow-hidden relative">
-        <div className="flex-1 flex overflow-hidden">
-          {activeTab === 'chat' && <ChatView key={activeAgentId} agent={activeAgent} onMetricUpdate={handleMetricUpdate} onLog={addLog} />}
-          {activeTab === 'canvas' && <CanvasView onLog={addLog} />}
-          {activeTab === 'metrics' && <MetricsView metrics={metrics} />}
-          {activeTab === 'orchestration' && (
-            <OrchestrationView 
-              agents={agents}
-              activeAgentId={activeAgentId}
-              onAddAgent={handleAddAgent}
-              onRemoveAgent={handleRemoveAgent}
-              onSelectAgent={setActiveAgentId}
-              onSetActiveTab={setActiveTab}
+    <ApiKeysProvider>
+      <div className="flex h-screen bg-slate-950 text-slate-200 font-sans antialiased overflow-hidden select-none">
+        <Sidebar 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab} 
+          agents={agents} 
+          activeAgentId={activeAgentId} 
+          setActiveAgentId={setActiveAgentId}
+          onAddAgent={handleAddAgent}
+        />
+        
+        <main className="flex-1 flex flex-col overflow-hidden relative">
+          <div className="flex-1 flex overflow-hidden">
+            {activeTab === 'chat' && <ChatView key={activeAgentId} agent={activeAgent} onMetricUpdate={handleMetricUpdate} onLog={addLog} />}
+            {activeTab === 'canvas' && <CanvasView onLog={addLog} />}
+            {activeTab === 'metrics' && <MetricsView metrics={metrics} />}
+            {activeTab === 'terminal' && <ApiTerminal />}
+            {activeTab === 'orchestration' && (
+              <OrchestrationView 
+                agents={agents}
+                activeAgentId={activeAgentId}
+                onAddAgent={handleAddAgent}
+                onRemoveAgent={handleRemoveAgent}
+                onSelectAgent={setActiveAgentId}
+                onSetActiveTab={setActiveTab}
+              />
+            )}
+          </div>
+          
+          <SystemTerminal 
+            logs={logs} 
+            isOpen={isTerminalOpen} 
+            onToggle={() => setIsTerminalOpen(!isTerminalOpen)} 
+            onClear={() => setLogs([])}
+            onCommand={handleCommand}
+          />
+
+          {activeTab === 'chat' && (
+            <AgentControlPanel 
+              agent={activeAgent} 
+              onUpdate={handleUpdateAgent}
+              onRemove={agents.length > 1 ? () => handleRemoveAgent(activeAgent.id) : undefined}
             />
           )}
-        </div>
-        
-        <SystemTerminal 
-          logs={logs} 
-          isOpen={isTerminalOpen} 
-          onToggle={() => setIsTerminalOpen(!isTerminalOpen)} 
-          onClear={() => setLogs([])}
-          onCommand={handleCommand}
-        />
-
-        {activeTab === 'chat' && (
-          <AgentControlPanel 
-            agent={activeAgent} 
-            onUpdate={handleUpdateAgent}
-            onRemove={agents.length > 1 ? () => handleRemoveAgent(activeAgent.id) : undefined}
-          />
-        )}
-      </main>
-    </div>
+        </main>
+      </div>
+    </ApiKeysProvider>
   );
 };
 

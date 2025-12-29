@@ -42,6 +42,16 @@ const SUPPORTED_PROVIDERS = [
   'deepseek',
   'perplexity',
   'groq',
+  'xai',
+  'together',
+  'fireworks',
+  'cerebras',
+  'sambanova',
+  'novita',
+  'replicate',
+  'huggingface',
+  'voyage',
+  'jina',
   'ollama',
   'openrouter'
 ];

@@ -560,9 +560,23 @@ const ApiTerminal: React.FC = () => {
                   </div>
                   <pre className="text-[11px] leading-relaxed overflow-x-auto selection:bg-indigo-500/30 font-mono scrollbar-hide">
                     <code className="text-indigo-200 whitespace-pre-wrap">
-                      {typeof entry.response === 'string' ? entry.response : JSON.stringify(entry.response, null, 2)}
+                      {(entry.response as any)?.content 
+                        ? (entry.response as any).content 
+                        : typeof entry.response === 'string' 
+                          ? entry.response 
+                          : JSON.stringify(entry.response, null, 2)
+                      }
                     </code>
                   </pre>
+                  {(entry.response as any)?.grounding && (entry.response as any).grounding.length > 0 && (
+                    <div className="mt-2 pt-2 border-t border-slate-800/50 text-[10px] text-slate-500 flex flex-wrap gap-2">
+                       {(entry.response as any).grounding.map((g: any, i: number) => (
+                         <span key={i} className="px-2 py-0.5 bg-slate-900 rounded border border-slate-800">
+                           {g.web?.title || g.web?.uri || 'Source'}
+                         </span>
+                       ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

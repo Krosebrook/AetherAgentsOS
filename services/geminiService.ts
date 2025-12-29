@@ -6,6 +6,7 @@ import { ModelType, AgentConfig } from "../types";
 
 const TEXT_FALLBACK_CHAIN = [
   ModelType.FLASH,
+  ModelType.PRO,
   ModelType.LITE,
 ];
 

@@ -53,13 +53,26 @@ const SUPPORTED_PROVIDERS = [
   'voyage',
   'jina',
   'ollama',
-  'openrouter'
+  'openrouter',
+  'ai21',
+  'aleph-alpha',
+  'cloudflare',
+  'azure',
+  'aws-bedrock',
+  'databricks',
+  'openai',
+  'gemini-pro',
+  'gemini-flash',
+  'claude-3-opus'
 ];
 
 const ApiTerminal: React.FC = () => {
   const { keys, setKey, isLoading } = useApiKeys();
   const [input, setInput] = useState('');
   const [history, setHistory] = useState<TerminalResponse[]>([]);
+  const [cmdHistory, setCmdHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState<number>(-1);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -88,12 +101,20 @@ const ApiTerminal: React.FC = () => {
     return matches.map(m => m.replace(/^['"]|['"]$/g, ''));
   };
 
-  const diagnoseError = (err: any): ActionableError => {
+  const diagnoseError = (err: any, provider?: string): ActionableError => {
     const msg = err.message || '';
     const code = err.code || 'ENGINE_FAULT';
     
     let remediation = 'Consult the Aether protocol logs or check network connectivity.';
     let severity: 'high' | 'medium' | 'low' = 'high';
+    let docsLink = 'https://ai.google.dev/gemini-api/docs';
+
+    // Provider-specific Doc Links
+    if (provider === 'openai') docsLink = 'https://platform.openai.com/docs/guides/error-codes';
+    else if (provider === 'anthropic') docsLink = 'https://docs.anthropic.com/claude/reference/errors';
+    else if (provider === 'groq') docsLink = 'https://console.groq.com/docs/errors';
+    else if (provider === 'perplexity') docsLink = 'https://docs.perplexity.ai/docs/error-handling';
+    else if (provider === 'mistral') docsLink = 'https://docs.mistral.ai/api/';
 
     if (code === 'INVALID_ARGUMENTS') {
       remediation = 'Verify the command syntax. Example: set-key openai sk-xxxx';
@@ -107,9 +128,15 @@ const ApiTerminal: React.FC = () => {
     } else if (code === 'UNKNOWN_COMMAND') {
       remediation = 'Check the documentation via the "help" command for valid protocol verbs.';
       severity = 'low';
-    } else if (msg.includes('429') || msg.toLowerCase().includes('quota')) {
-      remediation = 'Quota exhausted or rate limit triggered. Implement exponential backoff or check billing status at ai.google.dev.';
+    } else if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.includes('insufficient_quota')) {
+      remediation = `Quota exhausted or rate limit triggered for ${provider?.toUpperCase()}. Implement exponential backoff or check billing status.`;
       severity = 'medium';
+    } else if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid_api_key')) {
+      remediation = `Authentication failed for ${provider?.toUpperCase()}. The API key in the vault appears invalid or expired.`;
+      severity = 'high';
+    } else if (msg.includes('500') || msg.includes('503')) {
+      remediation = `The ${provider?.toUpperCase()} engine is currently experiencing upstream instability. Retry in 30 seconds.`;
+      severity = 'high';
     } else if (msg.toLowerCase().includes('safety')) {
       remediation = 'The request was blocked by safety filters. Adjust the prompt or modify safety settings in the config.';
       severity = 'medium';
@@ -126,7 +153,7 @@ const ApiTerminal: React.FC = () => {
       code,
       remediation,
       severity,
-      docs_link: 'https://ai.google.dev/gemini-api/docs'
+      docs_link: docsLink
     };
   };
 
@@ -176,6 +203,8 @@ const ApiTerminal: React.FC = () => {
             'set-key [provider] [key] - Update engine credentials',
             'gemini generate --prompt "..." - Direct Flash-3 inference',
             'anthropic generate --prompt "..." - Orchestrated Parallel Dual-Inference',
+            'groq generate --prompt "..." - LPU Inference Stream',
+            'perplexity generate --prompt "..." - Online Knowledge Stream',
             '[provider] generate --prompt "..." - External protocol inference',
             'clear - Purge terminal history',
             'help - Display protocol manual'
@@ -187,7 +216,7 @@ const ApiTerminal: React.FC = () => {
         setHistory([]);
         return;
       }
-      else if (provider === 'gemini') {
+      else if (provider === 'gemini' || provider === 'gemini-pro' || provider === 'gemini-flash') {
         const promptIdx = args.indexOf('--prompt');
         if (promptIdx === -1 || !args[promptIdx + 1]) {
           const err = new Error('Inference requires a specific prompt payload.');
@@ -205,7 +234,10 @@ const ApiTerminal: React.FC = () => {
         let groundingChunks: any[] = [];
 
         for await (const chunk of stream) {
-          fullText += chunk.text || "";
+          const text = chunk.text;
+          if (text) {
+             fullText += text;
+          }
           const metadata = chunk.candidates?.[0]?.groundingMetadata?.groundingChunks;
           if (metadata) groundingChunks = [...groundingChunks, ...metadata];
 
@@ -224,7 +256,7 @@ const ApiTerminal: React.FC = () => {
         }
         return; 
       } 
-      else if (provider === 'anthropic') {
+      else if (provider === 'anthropic' || provider === 'claude-3-opus') {
         const key = keys.anthropic;
         if (!key) {
           const err = new Error(`ANTHROPIC protocol requires a provisioned key in the vault.`);
@@ -266,14 +298,17 @@ const ApiTerminal: React.FC = () => {
                    'anthropic-dangerous-direct-browser-access': 'true'
                  },
                  body: JSON.stringify({
-                   model: 'claude-3-5-sonnet-latest',
+                   model: provider === 'claude-3-opus' ? 'claude-3-opus-20240229' : 'claude-3-5-sonnet-latest',
                    max_tokens: 1024,
                    messages: [{ role: 'user', content: promptText }],
                    stream: true
                  })
                });
 
-               if (!response.ok) throw new Error(`Anthropic Node Error: ${response.status}`);
+               if (!response.ok) {
+                 const errorData = await response.json();
+                 throw new Error(errorData.error?.message || `Status ${response.status}`);
+               }
                
                const reader = response.body?.getReader();
                const decoder = new TextDecoder();
@@ -311,8 +346,11 @@ const ApiTerminal: React.FC = () => {
                  contents: `[SYSTEM_AUDIT_TASK]\nUser Prompt: "${promptText}"\n\nPerform a real-time protocol audit of this Anthropic inference path. Identify architectural nuances, reasoning patterns, and suggest prompt engineering optimizations for the Aether IDE. Respond in structured log format.`
                });
                for await (const chunk of stream) {
-                 auditText += chunk.text || "";
-                 updateOrchestratedHistory();
+                 const text = chunk.text;
+                 if (text) {
+                   auditText += text;
+                   updateOrchestratedHistory();
+                 }
                }
              } catch (e: any) {
                auditText += `\n[AUDIT_FAULT: ${e.message}]`;
@@ -323,6 +361,152 @@ const ApiTerminal: React.FC = () => {
            // Execute in parallel
            await Promise.allSettled([startAnthropicBridge(), startGeminiAuditor()]);
            return;
+        }
+      }
+      else if (provider === 'groq') {
+        const key = keys.groq;
+        if (!key) {
+          const err = new Error(`GROQ protocol requires a provisioned key in the vault.`);
+          (err as any).code = 'AUTH_REQUIRED';
+          throw err;
+        }
+
+        const promptIdx = args.indexOf('--prompt');
+        if (args.includes('generate') && promptIdx !== -1 && args[promptIdx + 1]) {
+           const promptText = args[promptIdx + 1];
+           let streamedText = "";
+
+           try {
+             const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+               method: 'POST',
+               headers: {
+                 'Authorization': `Bearer ${key}`,
+                 'Content-Type': 'application/json'
+               },
+               body: JSON.stringify({
+                 model: 'mixtral-8x7b-32768',
+                 messages: [{ role: 'user', content: promptText }],
+                 stream: true
+               })
+             });
+
+             if (!response.ok) {
+               const errorData = await response.json();
+               throw new Error(errorData.error?.message || `Status ${response.status}`);
+             }
+
+             const reader = response.body?.getReader();
+             const decoder = new TextDecoder();
+             if (reader) {
+               while (true) {
+                 const { done, value } = await reader.read();
+                 if (done) break;
+                 const chunk = decoder.decode(value);
+                 const lines = chunk.split('\n');
+                 for (const line of lines) {
+                   if (line.trim().startsWith('data: ')) {
+                     const jsonStr = line.trim().substring(6);
+                     if (jsonStr === '[DONE]') break;
+                     try {
+                       const data = JSON.parse(jsonStr);
+                       const content = data.choices?.[0]?.delta?.content;
+                       if (content) {
+                         streamedText += content;
+                         setHistory(prev => prev.map(h => 
+                           h.id === commandId ? { 
+                             ...h, 
+                             status: 'success', 
+                             response: { 
+                               content: streamedText, 
+                               protocol: 'groq',
+                               node: 'lpu-inference-engine',
+                               type: 'stream_segment'
+                             } 
+                           } : h
+                         ));
+                       }
+                     } catch (e) {}
+                   }
+                 }
+               }
+             }
+             return;
+           } catch (e: any) {
+             throw e;
+           }
+        }
+      }
+      else if (provider === 'perplexity') {
+        const key = keys.perplexity;
+        if (!key) {
+          const err = new Error(`PERPLEXITY protocol requires a provisioned key in the vault.`);
+          (err as any).code = 'AUTH_REQUIRED';
+          throw err;
+        }
+
+        const promptIdx = args.indexOf('--prompt');
+        if (args.includes('generate') && promptIdx !== -1 && args[promptIdx + 1]) {
+           const promptText = args[promptIdx + 1];
+           let streamedText = "";
+
+           try {
+             const response = await fetch('https://api.perplexity.ai/chat/completions', {
+               method: 'POST',
+               headers: {
+                 'Authorization': `Bearer ${key}`,
+                 'Content-Type': 'application/json'
+               },
+               body: JSON.stringify({
+                 model: 'llama-3.1-sonar-small-128k-online',
+                 messages: [{ role: 'user', content: promptText }],
+                 stream: true
+               })
+             });
+
+             if (!response.ok) {
+               const errorData = await response.json();
+               throw new Error(errorData.error?.message || `Status ${response.status}`);
+             }
+
+             const reader = response.body?.getReader();
+             const decoder = new TextDecoder();
+             if (reader) {
+               while (true) {
+                 const { done, value } = await reader.read();
+                 if (done) break;
+                 const chunk = decoder.decode(value);
+                 const lines = chunk.split('\n');
+                 for (const line of lines) {
+                   if (line.trim().startsWith('data: ')) {
+                     const jsonStr = line.trim().substring(6);
+                     if (jsonStr === '[DONE]') break;
+                     try {
+                       const data = JSON.parse(jsonStr);
+                       const content = data.choices?.[0]?.delta?.content;
+                       if (content) {
+                         streamedText += content;
+                         setHistory(prev => prev.map(h => 
+                           h.id === commandId ? { 
+                             ...h, 
+                             status: 'success', 
+                             response: { 
+                               content: streamedText, 
+                               protocol: 'perplexity',
+                               node: 'sonar-online-engine',
+                               type: 'stream_segment'
+                             } 
+                           } : h
+                         ));
+                       }
+                     } catch (e) {}
+                   }
+                 }
+               }
+             }
+             return;
+           } catch (e: any) {
+             throw e;
+           }
         }
       }
       else if (['openai', ...SUPPORTED_PROVIDERS].includes(provider)) {
@@ -381,14 +565,41 @@ const ApiTerminal: React.FC = () => {
 
       setHistory(prev => prev.map(h => h.id === commandId ? { ...h, response: result, status: 'success' } : h));
     } catch (err: any) {
-      const structuredError = diagnoseError(err);
+      const structuredError = diagnoseError(err, provider);
       setHistory(prev => prev.map(h => h.id === commandId ? { ...h, response: structuredError, status: 'error' } : h));
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (cmdHistory.length === 0) return;
+    
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const newIndex = historyIndex === -1 ? cmdHistory.length - 1 : Math.max(0, historyIndex - 1);
+      setHistoryIndex(newIndex);
+      setInput(cmdHistory[newIndex]);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (historyIndex === -1) return;
+      
+      const newIndex = historyIndex + 1;
+      if (newIndex >= cmdHistory.length) {
+        setHistoryIndex(-1);
+        setInput('');
+      } else {
+        setHistoryIndex(newIndex);
+        setInput(cmdHistory[newIndex]);
+      }
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
+    
+    setCmdHistory(prev => [...prev, input.trim()]);
+    setHistoryIndex(-1);
+    
     executeCommand(input.trim());
     setInput('');
   };
@@ -589,7 +800,7 @@ const ApiTerminal: React.FC = () => {
           <Code className="w-4 h-4 text-indigo-500" />
           <span className="text-indigo-400/60 font-bold">$</span>
         </div>
-        <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Execute protocol call (e.g., help, gemini generate, set-key)..." className="w-full bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-[2rem] py-5 pl-16 pr-16 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none text-slate-100 placeholder:text-slate-700 shadow-2xl transition-all font-mono" />
+        <input ref={inputRef} type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Execute protocol call (e.g., help, gemini generate, set-key)..." className="w-full bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-[2rem] py-5 pl-16 pr-16 focus:ring-2 focus:ring-indigo-500/40 focus:outline-none text-slate-100 placeholder:text-slate-700 shadow-2xl transition-all font-mono" />
         <button type="submit" disabled={!input.trim()} className="absolute right-3.5 top-1/2 -translate-y-1/2 p-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 text-white rounded-[1.5rem] transition-all shadow-xl shadow-indigo-600/20 active:scale-95">
           <Send className="w-4 h-4" />
         </button>

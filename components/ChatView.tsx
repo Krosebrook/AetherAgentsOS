@@ -58,12 +58,18 @@ const ChatView: React.FC<Props> = ({ agent, onMetricUpdate, onLog }) => {
     onLog('info', agent.name, `Processing prompt: "${input.substring(0, 30)}..."`);
 
     try {
-      const result = await generateAgentResponse(agent, input, (currentFullText) => {
-        setIsThinking(false);
-        setMessages(prev => prev.map(m => 
-          m.id === assistantMsgId ? { ...m, content: currentFullText } : m
-        ));
-      });
+      const result = await generateAgentResponse(
+        agent, 
+        input, 
+        'chat-session', // sessionId for tracking
+        agent.id, // agentId for tracking
+        (currentFullText) => {
+          setIsThinking(false);
+          setMessages(prev => prev.map(m => 
+            m.id === assistantMsgId ? { ...m, content: currentFullText } : m
+          ));
+        }
+      );
       
       const searchResult = result as { text: string; grounding?: any[]; latency: number; modelUsed: string };
       setIsThinking(false);

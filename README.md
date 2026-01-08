@@ -22,5 +22,15 @@ Access the terminal (`CTRL + ~`) and use:
 - `status`: Check global system health.
 - `clear`: Purge log history.
 
+## Testing
+Run the test suite with:
+```bash
+npm test                  # Run tests once
+npm run test:watch        # Run tests in watch mode
+npm run test:coverage     # Run tests with coverage report
+```
+
+See [TESTING.md](./TESTING.md) for detailed testing documentation.
+
 ## Security
 API keys are handled exclusively via server-side injection (`process.env.API_KEY`) and are never exposed to the frontend persistent storage layers.

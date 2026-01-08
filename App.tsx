@@ -40,7 +40,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setAgents(prev => prev.map(a => ({
+      setAgents((prev: Agent[]) => prev.map((a: Agent) => ({
         ...a,
         health: Math.max(0, Math.min(100, (a.health || 100) + (Math.random() > 0.5 ? 0.5 : -0.5)))
       })));
@@ -56,7 +56,7 @@ const App: React.FC = () => {
       source,
       message
     };
-    setLogs(prev => [...prev.slice(-199), newLog]);
+    setLogs((prev: LogEntry[]) => [...prev.slice(-199), newLog]);
   }, []);
 
   const handleAddAgent = useCallback((name?: string) => {
@@ -71,7 +71,7 @@ const App: React.FC = () => {
       thinkingBudget: 0,
       health: 100
     };
-    setAgents(prev => [...prev, newAgent]);
+    setAgents((prev: Agent[]) => [...prev, newAgent]);
     setActiveAgentId(newId);
     setActiveTab('chat');
     addLog('info', 'SYSTEM', `Deployed new agent node: ${newAgent.name}`);
@@ -85,7 +85,7 @@ const App: React.FC = () => {
 
     switch (action) {
       case 'nodes':
-        const nodeNames = agents.map(a => `${a.name} [${a.id}]`).join(', ');
+        const nodeNames = agents.map((a: Agent) => `${a.name} [${a.id}]`).join(', ');
         addLog('info', 'ENGINE', `Active Instances: ${nodeNames}`);
         break;
       case 'deploy':
@@ -95,7 +95,7 @@ const App: React.FC = () => {
         setLogs([]);
         break;
       case 'status':
-        addLog('info', 'SYSTEM', `Health: ${Math.round(agents.reduce((acc, a) => acc + (a.health || 0), 0) / agents.length)}% | Nodes: ${agents.length}`);
+        addLog('info', 'SYSTEM', `Health: ${Math.round(agents.reduce((acc: number, a: Agent) => acc + (a.health || 0), 0) / agents.length)}% | Nodes: ${agents.length}`);
         break;
       case 'help':
         addLog('info', 'HELP', 'Commands: nodes, deploy [name], clear, status, help');
@@ -106,16 +106,16 @@ const App: React.FC = () => {
   };
 
   const handleUpdateAgent = (updatedAgent: Agent) => {
-    setAgents(agents.map(a => a.id === updatedAgent.id ? updatedAgent : a));
+    setAgents(agents.map((a: Agent) => a.id === updatedAgent.id ? updatedAgent : a));
     addLog('info', 'CONFIG', `Modified protocol for node: ${updatedAgent.name}`);
   };
 
   const handleRemoveAgent = (id: string) => {
     if (agents.length <= 1) return;
-    const agentToRemove = agents.find(a => a.id === id);
-    const newAgents = agents.filter(a => a.id !== id);
+    const agentToRemove = agents.find((a: Agent) => a.id === id);
+    const newAgents = agents.filter((a: Agent) => a.id !== id);
     setAgents(newAgents);
-    if (activeAgentId === id) setActiveAgentId(newAgents[0].id);
+    if (activeAgentId === id && newAgents[0]) setActiveAgentId(newAgents[0].id);
     addLog('warn', 'SYSTEM', `Decommissioned agent node: ${agentToRemove?.name}`);
   };
 
@@ -125,10 +125,19 @@ const App: React.FC = () => {
       tokens,
       latency: latency / 1000,
     };
-    setMetrics(prev => [...prev.slice(-99), newMetric]);
+    setMetrics((prev: InferenceMetric[]) => [...prev.slice(-99), newMetric]);
   };
 
-  const activeAgent = agents.find(a => a.id === activeAgentId) || agents[0];
+  const activeAgent = agents.find((a: Agent) => a.id === activeAgentId) || agents[0];
+
+  // Ensure we always have an active agent (defensive programming)
+  if (!activeAgent) {
+    return (
+      <div className="flex h-screen bg-slate-950 text-slate-200 items-center justify-center">
+        <p>No agents available</p>
+      </div>
+    );
+  }
 
   return (
     <ApiKeysProvider>

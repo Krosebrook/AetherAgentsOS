@@ -18,6 +18,9 @@ interface CacheMetrics {
   maxSize: number;
 }
 
+// Constants for cache calculations
+const BYTES_PER_KB = 1024;
+
 export class LRUCache<T> {
   private cache: Map<string, CacheEntry<T>>;
   private readonly maxSize: number;
@@ -83,7 +86,7 @@ export class LRUCache<T> {
     const size = JSON.stringify(value).length;
 
     // If adding this would exceed max size, evict oldest entries
-    while (this.currentSize + size > this.maxSize * 1024 && this.cache.size > 0) {
+    while (this.currentSize + size > this.maxSize * BYTES_PER_KB && this.cache.size > 0) {
       const oldestKey = this.cache.keys().next().value;
       const oldEntry = this.cache.get(oldestKey);
       if (oldEntry) {

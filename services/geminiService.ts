@@ -17,9 +17,15 @@ const TEXT_FALLBACK_CHAIN = [
 // Initialize response cache (50MB, 30 min TTL)
 const responseCache = new LRUCache<any>(50, 30);
 
+// Singleton client instance to avoid creating new client on every call
+let clientInstance: GoogleGenAI | null = null;
+
 // Always use named parameter for apiKey and obtain directly from process.env.API_KEY
 export const getGeminiClient = (): GoogleGenAI => {
-  return new GoogleGenAI({ apiKey: process.env.API_KEY });
+  if (!clientInstance) {
+    clientInstance = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  }
+  return clientInstance;
 };
 
 const executeGeneration = async (

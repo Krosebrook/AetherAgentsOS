@@ -34,12 +34,14 @@ export interface UsageMetrics {
   totalCost: number;
   averageLatency: number;
   cacheHitRate: number;
-  byModel: Record<ModelType, {
-    calls: number;
-    inputTokens: number;
-    outputTokens: number;
-    cost: number;
-  }>;
+  byModel: Record<ModelType, ModelUsageMetrics>;
+}
+
+interface ModelUsageMetrics {
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  cost: number;
 }
 
 class UsageTracker {
@@ -93,7 +95,7 @@ class UsageTracker {
       : this.calculateCost(params.model, inputTokens, outputTokens);
 
     const record: UsageRecord = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`,
       timestamp: Date.now(),
       model: params.model,
       inputTokens,
@@ -138,7 +140,7 @@ class UsageTracker {
    * Get usage metrics
    */
   getMetrics(): UsageMetrics {
-    const byModel: Record<ModelType, any> = {} as any;
+    const byModel: Record<ModelType, ModelUsageMetrics> = {} as Record<ModelType, ModelUsageMetrics>;
     
     // Initialize all models
     Object.values(ModelType).forEach(model => {

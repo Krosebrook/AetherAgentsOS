@@ -40,7 +40,8 @@ const AgentControlPanel: React.FC<Props> = ({ agent, onUpdate, onRemove }) => {
     { id: ModelType.LITE, label: 'Gemini Flash Lite', icon: ZapOff, desc: 'Optimized for high-efficiency' },
   ];
 
-  const selectedModel = models.find(m => m.id === agent.model) || models[0];
+  // Ensure we always have a selected model (defensive programming)
+  const selectedModel = models.find(m => m.id === agent.model) || models[0]!;
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {

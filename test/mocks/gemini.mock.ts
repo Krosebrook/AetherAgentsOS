@@ -16,7 +16,6 @@ export const mockGoogleGenAI = {
  */
 export function createMockGeminiResponse(text: string, options: {
   withGrounding?: boolean;
-  latency?: number;
 } = {}) {
   const response: any = {
     text,
